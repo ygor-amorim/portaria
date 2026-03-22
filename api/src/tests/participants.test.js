@@ -37,7 +37,7 @@ describe('GET /events/:eventId/participants', () => {
         expect(res.body.meta.total).toBe(0);
     });
 
-    test('filters by name (case insensitive)', async () => {
+    test('filters by name (case and accent insensitive)', async () => {
         await request(app)
             .post(`/events/${eventId}/participants`)
             .set(authHeader(token))
@@ -47,8 +47,9 @@ describe('GET /events/:eventId/participants', () => {
             .set(authHeader(token))
             .send({ name: 'Maria Souza', email: 'maria@test.com' });
 
+        // Search without accent should still find 'João Silva'
         const res = await request(app)
-            .get(`/events/${eventId}/participants?name=João`)
+            .get(`/events/${eventId}/participants?name=Joao`)
             .set(authHeader(token));
         expect(res.status).toBe(200);
         expect(res.body.data).toHaveLength(1);

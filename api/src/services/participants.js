@@ -22,8 +22,8 @@ module.exports = (app) => {
         const base = app.db('participants').where({ event_id: eventId });
 
         if (filters.status) base.where({ status: filters.status });
-        if (filters.name) base.where('name', 'ilike', `%${filters.name}%`);
-        if (filters.company) base.where('company', 'ilike', `%${filters.company}%`);
+        if (filters.name) base.whereRaw('unaccent(name) ilike unaccent(?)', [`%${filters.name}%`]);
+        if (filters.company) base.whereRaw('unaccent(company) ilike unaccent(?)', [`%${filters.company}%`]);
 
         const [{ count }] = await base.clone().count('id as count');
         const data = await base
