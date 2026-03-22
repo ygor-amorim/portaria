@@ -150,29 +150,37 @@ module.exports = (app) => {
 
     const checkin = async (id, eventId, organizationId, userId) => {
         await assertEventOwnership(eventId, organizationId);
-        const participant = await app.db('participants').where({ id, event_id: eventId }).first();
-        if (!participant) {
+
+        // Verify participant exists before entering transaction
+        const exists = await app.db('participants').where({ id, event_id: eventId }).first();
+        if (!exists) {
             const err = new Error('Participant not found');
             err.status = 404;
             throw err;
         }
-        if (participant.status === 'checked_in') {
-            const err = new Error('Participant already checked in');
-            err.status = 400;
-            throw err;
-        }
 
-        await app.db('participants')
-            .where({ id, event_id: eventId })
-            .update({ status: 'checked_in', checked_in_at: new Date() });
+        // Atomic check-in: conditional UPDATE + check_ins insert in one transaction.
+        // The WHERE status != 'checked_in' guard prevents duplicate check-ins even
+        // under concurrent requests — only one will update a row, the other gets 0 rows.
+        return app.db.transaction(async (trx) => {
+            const updated = await trx('participants')
+                .where({ id, event_id: eventId, status: 'registered' })
+                .update({ status: 'checked_in', checked_in_at: new Date() });
 
-        await app.db('check_ins').insert({
-            participant_id: id,
-            checked_in_by: userId,
-            method: 'manual',
+            if (updated === 0) {
+                const err = new Error('Participant already checked in');
+                err.status = 400;
+                throw err;
+            }
+
+            await trx('check_ins').insert({
+                participant_id: id,
+                checked_in_by: userId,
+                method: 'manual',
+            });
+
+            return { message: 'Check-in successful', participant_id: id };
         });
-
-        return { message: 'Check-in successful', participant_id: id };
     };
 
     return { findAll, findOne, create, update, remove, checkin };

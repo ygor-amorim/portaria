@@ -5,9 +5,9 @@ module.exports = (app) => {
     const usersService = require('./users')(app);
 
     const issueToken = (user) => jwt.sign(
-        { id: user.id, name: user.name, email: user.email, organization_id: user.organization_id },
+        { id: user.id, name: user.name, email: user.email, organization_id: user.organization_id, role: user.role },
         process.env.JWT_SECRET,
-        { expiresIn: '14d' }
+        { expiresIn: '24h' }
     );
 
     const signup = async ({ orgName, slug, name, email, password }) => {
