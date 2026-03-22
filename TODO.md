@@ -5,12 +5,11 @@ GitHub issues: https://github.com/ygor-amorim/portaria/issues
 
 ---
 
-## Now (security — next session)
+## Now (scalability — next session)
 
-- [ ] #1 Rate limiting on auth + global baseline (`express-rate-limit`)
-- [ ] #2 Check-in race condition — wrap in Knex transaction + atomic conditional update
-- [ ] #3 Role in JWT payload + admin guard + mount `/users` route in app.js
-- [ ] #4 errorHandler: return generic message on 500s (currently leaks DB schema info)
+- [ ] #6 DB indexes migration (events.organization_id, participants.event_id, participants.status)
+- [ ] #5 Pagination on list endpoints (?page + ?limit)
+- [ ] #7 Store UUID instead of base64 PNG in qr_code column (generate on demand)
 
 ## Next (features)
 
@@ -20,16 +19,12 @@ GitHub issues: https://github.com/ygor-amorim/portaria/issues
 - [ ] Credential PDF generation (PDFKit)
 - [ ] Reports: attendance summary, by-room
 
-## Soon (scalability + cleanup)
+## Soon (cleanup + minor security)
 
-- [ ] #5 Pagination on all list endpoints (?page + ?limit)
-- [ ] #6 DB indexes migration (events.organization_id, participants.event_id, participants.status)
-- [ ] #7 Store UUID instead of base64 PNG in qr_code column (generate on demand)
-- [ ] #14 Remove nodemailer from package.json (replaced by Resend)
+- [ ] #13 Signout endpoint (expiry already fixed to 24h)
 - [ ] #10 Slug format validation on signup
 - [ ] #11 Password strength requirement (min 8 chars)
-- [ ] #12 HTML-encode user strings in email templates
-- [ ] #13 Shorten JWT expiry + signout endpoint
+- [ ] #14 Remove nodemailer from package.json (replaced by Resend)
 - [ ] #15 Log participant ID instead of email (LGPD)
 - [ ] QR code inline in email: requires public URL hosting (solve when frontend deployed)
 - [ ] Deploy (Railway or Render — decision pending)
@@ -59,7 +54,7 @@ GitHub issues: https://github.com/ygor-amorim/portaria/issues
 - [x] dev.html testing console (fixed createEvent naming collision)
 - [x] QR code generation on participant create (stored as base64 PNG in DB)
 - [x] Email confirmation via Resend (domain verified, QR as attachment + CID)
-- [x] Jest test suite (auth, events, rooms, participants — 49 tests, all passing)
+- [x] Jest test suite (57 tests across 5 suites, all passing)
 - [x] db:reset + dev:fresh npm scripts
 - [x] Raspberry Pi disk freed (161G recovered, pi-agent cron resumed)
 - [x] Multi-tenant isolation enforced on rooms and participants (C1 — CRITICAL)
@@ -67,3 +62,8 @@ GitHub issues: https://github.com/ygor-amorim/portaria/issues
 - [x] Email format validation on participant and user creation (M2 — MEDIUM)
 - [x] Pushed to GitHub (github.com/ygor-amorim/portaria, private)
 - [x] 15 GitHub issues created for all remaining findings
+- [x] #1 Rate limiting — global + auth limiters (express-rate-limit)
+- [x] #2 Check-in race condition — Knex transaction + atomic conditional update
+- [x] #3 Role in JWT, expiry 24h, adminOnly middleware, /users route mounted
+- [x] #4 errorHandler — generic 500 messages, real error logged server-side
+- [x] #12 HTML-encode user strings in email templates (escapeHtml utility)

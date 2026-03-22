@@ -4,6 +4,44 @@ Last 3 sessions. Older sessions are in `SESSION_ARCHIVE.md`.
 
 ---
 
+## Session 5 — 2026-03-22
+
+### What We Did
+- Fixed issues #1–4 (all HIGH security) and #12 (MEDIUM security) — 5 issues closed this session
+- #1 Rate limiting: installed `express-rate-limit`, global limiter (200 req/15min) + stricter auth limiter (20 req/hour); both skip in `NODE_ENV=test`
+- #2 Check-in race condition: wrapped in Knex transaction with conditional `WHERE status='registered'` update — if 0 rows affected → already checked in → 400; both DB writes atomic, rollback on failure
+- #3 Role/JWT + `/users` route: added `role` to JWT payload, reduced expiry 14d → 24h, created `adminOnly` middleware, mounted `/users` route with admin guard on GET and POST, forced `role: 'operator'` on user create (stripped from `req.body`)
+- #4 errorHandler: returns `'Internal server error'` on unhandled 500s, logs real error server-side only; application errors (explicit `err.status`) still return their message
+- #12 HTML injection in email: added `escapeHtml()` utility, applied to `participantName`, `eventName`, `eventLocation` before template interpolation — no new dependencies
+- Added `users.test.js`: 8 tests covering admin guard (403 for operators), role enforcement (admin always creates operators regardless of body), `/users` CRUD
+- Test suite: 57/57 passing across 5 suites
+
+### Files Created/Modified
+- `api/src/app.js` — rate limiters added, `/users` route mounted
+- `api/src/middlewares/adminOnly.js` — new, checks `req.user.role === 'admin'`
+- `api/src/middlewares/errorHandler.js` — generic 500 message
+- `api/src/services/auth.js` — role in JWT payload, expiry 14d → 24h
+- `api/src/routes/users.js` — adminOnly guard on all routes, role forced to 'operator'
+- `api/src/services/participants.js` — checkin() wrapped in Knex transaction
+- `api/src/services/email.js` — escapeHtml() added, applied to all user-controlled template values
+- `api/src/tests/users.test.js` — new, 8 tests
+- `api/package.json` — express-rate-limit added
+
+### Key Decisions
+| Decision | Reason |
+|----------|--------|
+| Rate limiter skips in test mode | Prevents limiter from interfering with test suite's repeated requests |
+| Conditional `WHERE status='registered'` instead of read-then-write | Atomic — eliminates TOCTOU race condition without needing a SELECT |
+| `escapeHtml` inline utility (no package) | Five character substitutions don't justify a dependency |
+| JWT expiry 24h not 8h | Event days can be long; receptionist shouldn't need to re-login mid-event |
+
+### Next Session
+- [ ] #6 Add DB indexes migration (events.organization_id, participants.event_id, participants.status)
+- [ ] #5 Pagination on list endpoints (?page + ?limit)
+- [ ] #7 Store UUID instead of base64 PNG in qr_code column
+
+---
+
 ## Session 4 — 2026-03-22
 
 ### What We Did
