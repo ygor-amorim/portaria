@@ -2,6 +2,13 @@ const { Resend } = require('resend');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const escapeHtml = (str) => String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
 const formatDate = (date) =>
     new Date(date).toLocaleDateString('pt-BR', {
         day: '2-digit',
@@ -11,6 +18,9 @@ const formatDate = (date) =>
     });
 
 const sendRegistrationConfirmation = async ({ to, participantName, eventName, startDate, endDate, eventLocation, qrCodeDataUrl }) => {
+    const safeName = escapeHtml(participantName);
+    const safeEventName = escapeHtml(eventName);
+    const safeLocation = eventLocation ? escapeHtml(eventLocation) : '';
     // Extract raw PNG buffer from the base64 data URL stored in DB
     const base64 = qrCodeDataUrl.replace(/^data:image\/png;base64,/, '');
     const qrBuffer = Buffer.from(base64, 'base64');
@@ -22,7 +32,7 @@ const sendRegistrationConfirmation = async ({ to, participantName, eventName, st
     await resend.emails.send({
         from: `Portaria Events <${process.env.SMTP_FROM}>`,
         to,
-        subject: `Inscrição confirmada — ${eventName}`,
+        subject: `Inscrição confirmada — ${safeEventName}`,
         attachments: [{
             filename: 'credencial.png',
             content: qrBuffer,
@@ -48,7 +58,7 @@ const sendRegistrationConfirmation = async ({ to, participantName, eventName, st
         <!-- Body -->
         <tr>
           <td style="padding:32px 40px;">
-            <p style="margin:0 0 16px;color:#333;font-size:1rem;">Olá, <strong>${participantName}</strong>!</p>
+            <p style="margin:0 0 16px;color:#333;font-size:1rem;">Olá, <strong>${safeName}</strong>!</p>
             <p style="margin:0 0 24px;color:#555;font-size:0.95rem;line-height:1.6;">
               Sua inscrição no evento abaixo está confirmada. Apresente o QR code na entrada.
             </p>
@@ -56,9 +66,9 @@ const sendRegistrationConfirmation = async ({ to, participantName, eventName, st
             <!-- Event details box -->
             <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px;margin-bottom:28px;">
               <tr><td style="padding:20px 24px;">
-                <p style="margin:0 0 8px;font-size:1rem;font-weight:700;color:#111;">${eventName}</p>
+                <p style="margin:0 0 8px;font-size:1rem;font-weight:700;color:#111;">${safeEventName}</p>
                 <p style="margin:0 0 4px;font-size:0.85rem;color:#555;">📅 ${dateRange}</p>
-                ${eventLocation ? `<p style="margin:0;font-size:0.85rem;color:#555;">📍 ${eventLocation}</p>` : ''}
+                ${safeLocation ? `<p style="margin:0;font-size:0.85rem;color:#555;">📍 ${safeLocation}</p>` : ''}
               </td></tr>
             </table>
 
