@@ -25,6 +25,27 @@ describe('POST /auth/signup', () => {
         expect(res.status).toBe(400);
         expect(res.body.error).toMatch(/slug/i);
     });
+
+    test('returns 400 when email is already in use globally', async () => {
+        await request(app).post('/auth/signup').send(testCredentials);
+        const res = await request(app).post('/auth/signup').send({
+            ...testCredentials,
+            slug: 'other-org',
+            orgName: 'Other Org',
+        });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/email/i);
+    });
+
+    test('signup failure does not leave an orphan organization', async () => {
+        const res = await request(app).post('/auth/signup').send({
+            ...testCredentials,
+            email: 'notanemail', // triggers user creation failure
+        });
+        expect(res.status).toBe(400);
+        const orgs = await app.db('organizations').where({ slug: testCredentials.slug });
+        expect(orgs).toHaveLength(0);
+    });
 });
 
 describe('POST /auth/signin', () => {

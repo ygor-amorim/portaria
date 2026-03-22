@@ -139,3 +139,15 @@ describe('DELETE /events/:id', () => {
         expect(res.status).toBe(404);
     });
 });
+
+describe('PUT /events/:id — empty patch', () => {
+    test('returns 400 when no valid fields are sent', async () => {
+        const created = await request(app).post('/events').set(authHeader(token)).send(validEvent);
+        const res = await request(app)
+            .put(`/events/${created.body.id}`)
+            .set(authHeader(token))
+            .send({ foo: 'bar' });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/no valid fields/i);
+    });
+});

@@ -72,6 +72,15 @@ module.exports = (app) => {
             throw err;
         }
 
+        if (participant.room_id) {
+            const room = await app.db('rooms').where({ id: participant.room_id, event_id: eventId }).first();
+            if (!room) {
+                const err = new Error('Room does not belong to this event');
+                err.status = 400;
+                throw err;
+            }
+        }
+
         const id = randomUUID();
         const qr_code = await QRCode.toDataURL(id);
 
@@ -128,6 +137,21 @@ module.exports = (app) => {
         const safeData = Object.fromEntries(
             Object.entries(data).filter(([k]) => allowed.includes(k))
         );
+
+        if (Object.keys(safeData).length === 0) {
+            const err = new Error('No valid fields provided for update');
+            err.status = 400;
+            throw err;
+        }
+
+        if (safeData.room_id) {
+            const room = await app.db('rooms').where({ id: safeData.room_id, event_id: eventId }).first();
+            if (!room) {
+                const err = new Error('Room does not belong to this event');
+                err.status = 400;
+                throw err;
+            }
+        }
 
         const [updated] = await app.db('participants')
             .where({ id, event_id: eventId })

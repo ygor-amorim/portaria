@@ -54,6 +54,12 @@ module.exports = (app) => {
             Object.entries(data).filter(([k]) => allowed.includes(k))
         );
 
+        if (Object.keys(safeData).length === 0) {
+            const err = new Error('No valid fields provided for update');
+            err.status = 400;
+            throw err;
+        }
+
         const [updated] = await app.db('rooms')
             .where({ id, event_id: eventId })
             .update(safeData, ['id', 'name', 'capacity', 'description']);

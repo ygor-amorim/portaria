@@ -172,6 +172,45 @@ describe('DELETE /events/:eventId/participants/:id', () => {
     });
 });
 
+describe('Cross-event room assignment', () => {
+    test('returns 400 when room_id belongs to a different event', async () => {
+        // Create a second event with a room
+        const eventB = await request(app).post('/events').set(authHeader(token)).send({
+            code: 'EVT02', name: 'Event B', start_date: '2026-07-01', end_date: '2026-07-01',
+        });
+        const roomB = await request(app)
+            .post(`/events/${eventB.body.id}/rooms`)
+            .set(authHeader(token))
+            .send({ name: 'Room B' });
+
+        // Try to assign that room to a participant in event A
+        const res = await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send({ ...validParticipant, room_id: roomB.body.id });
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/does not belong/i);
+    });
+});
+
+describe('Empty patch payload', () => {
+    test('returns 400 when no valid fields are sent', async () => {
+        const created = await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send(validParticipant);
+
+        const res = await request(app)
+            .put(`/events/${eventId}/participants/${created.body.id}`)
+            .set(authHeader(token))
+            .send({ foo: 'bar' });
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/no valid fields/i);
+    });
+});
+
 describe('Multi-tenant isolation', () => {
     test('org B cannot access org A participants', async () => {
         // Create a participant under org A's event

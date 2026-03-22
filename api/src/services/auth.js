@@ -24,18 +24,21 @@ module.exports = (app) => {
             throw err;
         }
 
-        const [org] = await app.db('organizations')
-            .insert({ name: orgName, slug }, ['id', 'name', 'slug']);
+        // Atomic: org + first admin user created together or not at all
+        return app.db.transaction(async (trx) => {
+            const [org] = await trx('organizations')
+                .insert({ name: orgName, slug }, ['id', 'name', 'slug']);
 
-        const user = await usersService.create({
-            organization_id: org.id,
-            name,
-            email,
-            password,
-            role: 'admin',
+            const user = await usersService.create({
+                organization_id: org.id,
+                name,
+                email,
+                password,
+                role: 'admin',
+            }, trx);
+
+            return { token: issueToken({ ...user, organization_id: org.id }) };
         });
-
-        return { token: issueToken({ ...user, organization_id: org.id }) };
     };
 
     const signin = async (email, password) => {

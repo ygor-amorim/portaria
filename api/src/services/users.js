@@ -14,7 +14,10 @@ module.exports = (app) => {
         return app.db('users').where(filter).first();
     };
 
-    const create = async (user) => {
+    // trx is optional — passed by signup to participate in its transaction
+    const create = async (user, trx) => {
+        const db = trx || app.db;
+
         if (!user.name) {
             const err = new Error('Name is required');
             err.status = 400;
@@ -41,11 +44,9 @@ module.exports = (app) => {
             throw err;
         }
 
-        const existing = await app.db('users')
-            .where({ organization_id: user.organization_id, email: user.email })
-            .first();
+        const existing = await db('users').where({ email: user.email }).first();
         if (existing) {
-            const err = new Error('Email already in use for this organization');
+            const err = new Error('Email already in use');
             err.status = 400;
             throw err;
         }
@@ -53,7 +54,7 @@ module.exports = (app) => {
         const saltRounds = process.env.NODE_ENV === 'test' ? 1 : 10;
         const password_hash = await bcrypt.hash(user.password, saltRounds);
 
-        const [created] = await app.db('users')
+        const [created] = await db('users')
             .insert({
                 organization_id: user.organization_id,
                 name: user.name,
