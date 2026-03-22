@@ -172,6 +172,58 @@ describe('DELETE /events/:eventId/participants/:id', () => {
     });
 });
 
+describe('Room capacity enforcement', () => {
+    test('allows registration when room is not full', async () => {
+        const room = await request(app)
+            .post(`/events/${eventId}/rooms`)
+            .set(authHeader(token))
+            .send({ name: 'Small Room', capacity: 2 });
+
+        const res = await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send({ ...validParticipant, room_id: room.body.id });
+
+        expect(res.status).toBe(201);
+    });
+
+    test('returns 400 when room is at capacity', async () => {
+        const room = await request(app)
+            .post(`/events/${eventId}/rooms`)
+            .set(authHeader(token))
+            .send({ name: 'Tiny Room', capacity: 1 });
+
+        // Fill the room
+        await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send({ ...validParticipant, room_id: room.body.id });
+
+        // Try to exceed capacity
+        const res = await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send({ name: 'Second Person', email: 'second@test.com', room_id: room.body.id });
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/capacity/i);
+    });
+
+    test('allows registration when room has no capacity limit', async () => {
+        const room = await request(app)
+            .post(`/events/${eventId}/rooms`)
+            .set(authHeader(token))
+            .send({ name: 'Unlimited Room' }); // no capacity
+
+        const res = await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send({ ...validParticipant, room_id: room.body.id });
+
+        expect(res.status).toBe(201);
+    });
+});
+
 describe('Cross-event room assignment', () => {
     test('returns 400 when room_id belongs to a different event', async () => {
         // Create a second event with a room

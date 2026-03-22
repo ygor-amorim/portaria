@@ -79,7 +79,19 @@ module.exports = (app) => {
                 err.status = 400;
                 throw err;
             }
+            if (room.capacity !== null ){
+                const { count } = await app.db('participants')
+                .where({ room_id: participant.room_id })
+                .count('id as count')
+                .first();
+                if (Number(count) >= room.capacity) {
+                    const err = new Error('Room is at full capacity');
+                    err.status = 400;
+                    throw err;
+                }
+            }
         }
+
 
         const id = randomUUID();
         const qr_code = await QRCode.toDataURL(id);
