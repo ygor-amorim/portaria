@@ -8,8 +8,8 @@ module.exports = (app) => {
     router.get('/', async (req, res, next) => {
         try {
             const { status, name, company } = req.query;
-            const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 20;
+            const page = Math.max(1, parseInt(req.query.page) || 1);
+            const limit = Math.max(1, parseInt(req.query.limit) || 20);
             const result = await participantsService.findAll(req.params.eventId, req.user.organization_id, { status, name, company }, { page, limit });
             res.json(result);
         } catch (err) {

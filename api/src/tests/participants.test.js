@@ -267,6 +267,41 @@ describe('Cross-event room assignment', () => {
     });
 });
 
+describe('Email collision on update', () => {
+    test('returns 400 when updated email is already taken by another participant', async () => {
+        await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send(validParticipant);
+        const second = await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send({ name: 'Maria Souza', email: 'maria@test.com' });
+
+        const res = await request(app)
+            .put(`/events/${eventId}/participants/${second.body.id}`)
+            .set(authHeader(token))
+            .send({ email: validParticipant.email });
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/email/i);
+    });
+
+    test('allows updating a participant with their own current email', async () => {
+        const created = await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send(validParticipant);
+
+        const res = await request(app)
+            .put(`/events/${eventId}/participants/${created.body.id}`)
+            .set(authHeader(token))
+            .send({ email: validParticipant.email, name: 'João Updated' });
+
+        expect(res.status).toBe(200);
+    });
+});
+
 describe('Empty patch payload', () => {
     test('returns 400 when no valid fields are sent', async () => {
         const created = await request(app)

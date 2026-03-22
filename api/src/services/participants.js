@@ -159,6 +159,18 @@ module.exports = (app) => {
             throw err;
         }
 
+        if (safeData.email) {
+            const collision = await app.db('participants')
+                .where({ event_id: eventId, email: safeData.email })
+                .whereNot({ id })
+                .first();
+            if (collision) {
+                const err = new Error('Email already registered for this event');
+                err.status = 400;
+                throw err;
+            }
+        }
+
         if (safeData.room_id) {
             const room = await app.db('rooms').where({ id: safeData.room_id, event_id: eventId }).first();
             if (!room) {

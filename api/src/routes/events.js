@@ -7,8 +7,8 @@ module.exports = (app) => {
     // GET /events — list organization's events
     router.get('/', async (req, res, next) => {
         try {
-            const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 20;
+            const page = Math.max(1, parseInt(req.query.page) || 1);
+            const limit = Math.max(1, parseInt(req.query.limit) || 20);
             const result = await eventsService.findAll(req.user.organization_id, { page, limit });
             res.json(result);
         } catch (err) {
