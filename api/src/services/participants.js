@@ -1,5 +1,6 @@
 const QRCode = require('qrcode');
 const { randomUUID } = require('crypto');
+
 const { sendRegistrationConfirmation } = require('./email');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -16,17 +17,21 @@ module.exports = (app) => {
         }
     };
 
-    const findAll = async (eventId, organizationId, filters = {}) => {
+    const findAll = async (eventId, organizationId, filters = {}, { page = 1, limit = 20 } = {}) => {
         await assertEventOwnership(eventId, organizationId);
-        const query = app.db('participants')
-            .where({ event_id: eventId })
-            .select('id', 'name', 'email', 'company', 'job_title', 'phone', 'status', 'room_id', 'checked_in_at');
+        const base = app.db('participants').where({ event_id: eventId });
 
-        if (filters.status) query.where({ status: filters.status });
-        if (filters.name) query.where('name', 'ilike', `%${filters.name}%`);
-        if (filters.company) query.where('company', 'ilike', `%${filters.company}%`);
+        if (filters.status) base.where({ status: filters.status });
+        if (filters.name) base.where('name', 'ilike', `%${filters.name}%`);
+        if (filters.company) base.where('company', 'ilike', `%${filters.company}%`);
 
-        return query;
+        const [{ count }] = await base.clone().count('id as count');
+        const data = await base
+            .select('id', 'name', 'email', 'company', 'job_title', 'phone', 'status', 'room_id', 'checked_in_at')
+            .limit(limit)
+            .offset((page - 1) * limit);
+
+        return { data, meta: { total: Number(count), page, limit, pages: Math.ceil(Number(count) / limit) } };
     };
 
     const findOne = async (id, eventId, organizationId) => {
@@ -94,7 +99,6 @@ module.exports = (app) => {
 
 
         const id = randomUUID();
-        const qr_code = await QRCode.toDataURL(id);
 
         const [newParticipant] = await app.db('participants').insert({
             id,
@@ -107,8 +111,7 @@ module.exports = (app) => {
             job_title: participant.job_title || null,
             phone: participant.phone || null,
             status: 'registered',
-            qr_code,
-        }, ['id', 'name', 'email', 'company', 'job_title', 'status', 'qr_code']);
+        }, ['id', 'name', 'email', 'company', 'job_title', 'status']);
 
         if (process.env.NODE_ENV !== 'test') {
             try {
@@ -119,7 +122,7 @@ module.exports = (app) => {
                     startDate: event.start_date,
                     endDate: event.end_date,
                     eventLocation: event.location || '',
-                    qrCodeDataUrl: qr_code,
+                    participantId: id,
                 });
                 console.log('Email sent to participant:', id);
             } catch (err) {
@@ -219,5 +222,15 @@ module.exports = (app) => {
         });
     };
 
-    return { findAll, findOne, create, update, remove, checkin };
+    const getQrCode = async (id, eventId, organizationId) => {
+        const participant = await findOne(id, eventId, organizationId);
+        if (!participant) {
+            const err = new Error('Participant not found');
+            err.status = 404;
+            throw err;
+        }
+        return QRCode.toBuffer(participant.id);
+    };
+
+    return { findAll, findOne, create, update, remove, checkin, getQrCode };
 };

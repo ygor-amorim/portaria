@@ -8,8 +8,10 @@ module.exports = (app) => {
     router.get('/', async (req, res, next) => {
         try {
             const { status, name, company } = req.query;
-            const participants = await participantsService.findAll(req.params.eventId, req.user.organization_id, { status, name, company });
-            res.json(participants);
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 20;
+            const result = await participantsService.findAll(req.params.eventId, req.user.organization_id, { status, name, company }, { page, limit });
+            res.json(result);
         } catch (err) {
             next(err);
         }
@@ -51,6 +53,17 @@ module.exports = (app) => {
         try {
             await participantsService.remove(req.params.id, req.params.eventId, req.user.organization_id);
             res.status(204).send();
+        } catch (err) {
+            next(err);
+        }
+    });
+
+    // GET /events/:eventId/participants/:id/qrcode
+    router.get('/:id/qrcode', async (req, res, next) => {
+        try {
+            const buffer = await participantsService.getQrCode(req.params.id, req.params.eventId, req.user.organization_id);
+            res.set('Content-Type', 'image/png');
+            res.send(buffer);
         } catch (err) {
             next(err);
         }

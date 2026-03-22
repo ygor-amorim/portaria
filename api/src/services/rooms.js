@@ -10,11 +10,20 @@ module.exports = (app) => {
         }
     };
 
-    const findAll = async (eventId, organizationId) => {
+    const findAll = async (eventId, organizationId, { page = 1, limit = 20 } = {}) => {
         await assertEventOwnership(eventId, organizationId);
-        return app.db('rooms')
+
+        const [{ count }] = await app.db('rooms')
             .where({ event_id: eventId })
-            .select('id', 'name', 'capacity', 'description', 'created_at');
+            .count('id as count');
+
+        const data = await app.db('rooms')
+            .where({ event_id: eventId })
+            .select('id', 'name', 'capacity', 'description', 'created_at')
+            .limit(limit)
+            .offset((page - 1) * limit);
+
+        return { data, meta: { total: Number(count), page, limit, pages: Math.ceil(Number(count) / limit) } };
     };
 
     const findOne = async (id, eventId, organizationId) => {

@@ -7,8 +7,10 @@ module.exports = (app) => {
     // GET /events — list organization's events
     router.get('/', async (req, res, next) => {
         try {
-            const events = await eventsService.findAll(req.user.organization_id);
-            res.json(events);
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 20;
+            const result = await eventsService.findAll(req.user.organization_id, { page, limit });
+            res.json(result);
         } catch (err) {
             next(err);
         }

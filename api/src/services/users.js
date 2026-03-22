@@ -38,6 +38,11 @@ module.exports = (app) => {
             err.status = 400;
             throw err;
         }
+        if (user.password.length < 8) {
+            const err = new Error('Password must be at least 8 characters');
+            err.status = 400;
+            throw err;
+        }
         if (!user.organization_id) {
             const err = new Error('organization_id is required');
             err.status = 400;

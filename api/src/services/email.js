@@ -1,3 +1,4 @@
+const QRCode = require('qrcode');
 const { Resend } = require('resend');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -17,13 +18,11 @@ const formatDate = (date) =>
         timeZone: 'America/Sao_Paulo',
     });
 
-const sendRegistrationConfirmation = async ({ to, participantName, eventName, startDate, endDate, eventLocation, qrCodeDataUrl }) => {
+const sendRegistrationConfirmation = async ({ to, participantName, eventName, startDate, endDate, eventLocation, participantId }) => {
     const safeName = escapeHtml(participantName);
     const safeEventName = escapeHtml(eventName);
     const safeLocation = eventLocation ? escapeHtml(eventLocation) : '';
-    // Extract raw PNG buffer from the base64 data URL stored in DB
-    const base64 = qrCodeDataUrl.replace(/^data:image\/png;base64,/, '');
-    const qrBuffer = Buffer.from(base64, 'base64');
+    const qrBuffer = await QRCode.toBuffer(participantId);
 
     const dateRange = startDate === endDate
         ? formatDate(startDate)

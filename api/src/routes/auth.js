@@ -1,4 +1,5 @@
 const express = require('express');
+const authMiddleware = require('../middlewares/auth');
 
 module.exports = (app) => {
     const router = express.Router();
@@ -23,6 +24,11 @@ module.exports = (app) => {
         } catch (err) {
             next(err);
         }
+    });
+
+    // POST /auth/signout — JWT is stateless; client discards the token
+    router.post('/signout', authMiddleware, (req, res) => {
+        res.json({ message: 'Signed out successfully' });
     });
 
     return router;

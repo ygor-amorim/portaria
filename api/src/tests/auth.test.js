@@ -37,6 +37,24 @@ describe('POST /auth/signup', () => {
         expect(res.body.error).toMatch(/email/i);
     });
 
+    test('returns 400 when slug has invalid format', async () => {
+        const res = await request(app).post('/auth/signup').send({
+            ...testCredentials,
+            slug: 'My Org!',
+        });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/slug/i);
+    });
+
+    test('returns 400 when password is too short', async () => {
+        const res = await request(app).post('/auth/signup').send({
+            ...testCredentials,
+            password: 'short',
+        });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/password/i);
+    });
+
     test('signup failure does not leave an orphan organization', async () => {
         const res = await request(app).post('/auth/signup').send({
             ...testCredentials,
@@ -45,6 +63,26 @@ describe('POST /auth/signup', () => {
         expect(res.status).toBe(400);
         const orgs = await app.db('organizations').where({ slug: testCredentials.slug });
         expect(orgs).toHaveLength(0);
+    });
+});
+
+describe('POST /auth/signout', () => {
+    test('returns 200 with valid token', async () => {
+        await request(app).post('/auth/signup').send(testCredentials);
+        const { body: { token } } = await request(app).post('/auth/signin').send({
+            email: testCredentials.email,
+            password: testCredentials.password,
+        });
+        const res = await request(app)
+            .post('/auth/signout')
+            .set('Authorization', `Bearer ${token}`);
+        expect(res.status).toBe(200);
+        expect(res.body.message).toMatch(/signed out/i);
+    });
+
+    test('returns 401 without token', async () => {
+        const res = await request(app).post('/auth/signout');
+        expect(res.status).toBe(401);
     });
 });
 

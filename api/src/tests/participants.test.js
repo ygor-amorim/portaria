@@ -28,12 +28,13 @@ describe('Auth guard', () => {
 });
 
 describe('GET /events/:eventId/participants', () => {
-    test('returns empty array when no participants', async () => {
+    test('returns empty data array when no participants', async () => {
         const res = await request(app)
             .get(`/events/${eventId}/participants`)
             .set(authHeader(token));
         expect(res.status).toBe(200);
-        expect(res.body).toEqual([]);
+        expect(res.body.data).toEqual([]);
+        expect(res.body.meta.total).toBe(0);
     });
 
     test('filters by name (case insensitive)', async () => {
@@ -50,8 +51,8 @@ describe('GET /events/:eventId/participants', () => {
             .get(`/events/${eventId}/participants?name=João`)
             .set(authHeader(token));
         expect(res.status).toBe(200);
-        expect(res.body).toHaveLength(1);
-        expect(res.body[0].name).toBe('João Silva');
+        expect(res.body.data).toHaveLength(1);
+        expect(res.body.data[0].name).toBe('João Silva');
     });
 
     test('filters by company', async () => {
@@ -68,8 +69,8 @@ describe('GET /events/:eventId/participants', () => {
             .get(`/events/${eventId}/participants?company=test`)
             .set(authHeader(token));
         expect(res.status).toBe(200);
-        expect(res.body).toHaveLength(1);
-        expect(res.body[0].company).toBe('Test Corp');
+        expect(res.body.data).toHaveLength(1);
+        expect(res.body.data[0].company).toBe('Test Corp');
     });
 
     test('filters by status', async () => {
@@ -82,7 +83,7 @@ describe('GET /events/:eventId/participants', () => {
             .get(`/events/${eventId}/participants?status=registered`)
             .set(authHeader(token));
         expect(res.status).toBe(200);
-        expect(res.body).toHaveLength(1);
+        expect(res.body.data).toHaveLength(1);
     });
 });
 
@@ -96,7 +97,6 @@ describe('POST /events/:eventId/participants', () => {
         expect(res.body.id).toBeDefined();
         expect(res.body.name).toBe('João Silva');
         expect(res.body.status).toBe('registered');
-        expect(res.body.qr_code).toMatch(/^data:image\/png;base64,/);
     });
 
     test('returns 400 when name is missing', async () => {
@@ -135,6 +135,27 @@ describe('POST /events/:eventId/participants', () => {
             .send({ ...validParticipant, name: 'João Clone' });
         expect(res.status).toBe(400);
         expect(res.body.error).toMatch(/email/i);
+    });
+});
+
+describe('GET /events/:eventId/participants/:id/qrcode', () => {
+    test('returns a PNG for a known participant', async () => {
+        const created = await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send(validParticipant);
+        const res = await request(app)
+            .get(`/events/${eventId}/participants/${created.body.id}/qrcode`)
+            .set(authHeader(token));
+        expect(res.status).toBe(200);
+        expect(res.headers['content-type']).toMatch(/image\/png/);
+    });
+
+    test('returns 404 for unknown participant', async () => {
+        const res = await request(app)
+            .get(`/events/${eventId}/participants/00000000-0000-0000-0000-000000000000/qrcode`)
+            .set(authHeader(token));
+        expect(res.status).toBe(404);
     });
 });
 

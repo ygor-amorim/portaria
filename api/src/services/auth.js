@@ -1,6 +1,8 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+const SLUG_RE = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
+
 module.exports = (app) => {
     const usersService = require('./users')(app);
 
@@ -13,6 +15,12 @@ module.exports = (app) => {
     const signup = async ({ orgName, slug, name, email, password }) => {
         if (!orgName || !slug || !name || !email || !password) {
             const err = new Error('All fields are required: orgName, slug, name, email, password');
+            err.status = 400;
+            throw err;
+        }
+
+        if (!SLUG_RE.test(slug)) {
+            const err = new Error('Slug must be lowercase letters, digits, and hyphens only (e.g. my-org)');
             err.status = 400;
             throw err;
         }

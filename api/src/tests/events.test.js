@@ -29,10 +29,11 @@ describe('Auth guard', () => {
 });
 
 describe('GET /events', () => {
-    test('returns empty array when no events exist', async () => {
+    test('returns empty data array when no events exist', async () => {
         const res = await request(app).get('/events').set(authHeader(token));
         expect(res.status).toBe(200);
-        expect(res.body).toEqual([]);
+        expect(res.body.data).toEqual([]);
+        expect(res.body.meta.total).toBe(0);
     });
 
     test('returns only events belonging to the authenticated org', async () => {
@@ -42,7 +43,15 @@ describe('GET /events', () => {
         const res = await request(app).get('/events').set(authHeader(tokenB));
 
         expect(res.status).toBe(200);
-        expect(res.body).toEqual([]);
+        expect(res.body.data).toEqual([]);
+    });
+
+    test('returns pagination meta', async () => {
+        await request(app).post('/events').set(authHeader(token)).send(validEvent);
+        const res = await request(app).get('/events').set(authHeader(token));
+        expect(res.body.meta.total).toBe(1);
+        expect(res.body.meta.page).toBe(1);
+        expect(res.body.meta.limit).toBe(20);
     });
 });
 

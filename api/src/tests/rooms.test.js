@@ -23,10 +23,11 @@ describe('Auth guard', () => {
 });
 
 describe('GET /events/:eventId/rooms', () => {
-    test('returns empty array when no rooms exist', async () => {
+    test('returns empty data array when no rooms exist', async () => {
         const res = await request(app).get(`/events/${eventId}/rooms`).set(authHeader(token));
         expect(res.status).toBe(200);
-        expect(res.body).toEqual([]);
+        expect(res.body.data).toEqual([]);
+        expect(res.body.meta.total).toBe(0);
     });
 });
 

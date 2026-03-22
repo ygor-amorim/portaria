@@ -1,8 +1,16 @@
 module.exports = (app) => {
-    const findAll = (organizationId) => {
-        return app.db('events')
+    const findAll = async (organizationId, { page = 1, limit = 20 } = {}) => {
+        const [{ count }] = await app.db('events')
             .where({ organization_id: organizationId })
-            .select('id', 'code', 'name', 'description', 'start_date', 'end_date', 'location', 'created_at');
+            .count('id as count');
+
+        const data = await app.db('events')
+            .where({ organization_id: organizationId })
+            .select('id', 'code', 'name', 'description', 'start_date', 'end_date', 'location', 'created_at')
+            .limit(limit)
+            .offset((page - 1) * limit);
+
+        return { data, meta: { total: Number(count), page, limit, pages: Math.ceil(Number(count) / limit) } };
     };
 
     const findOne = (id, organizationId) => {
