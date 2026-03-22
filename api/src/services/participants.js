@@ -1,0 +1,179 @@
+const QRCode = require('qrcode');
+const { randomUUID } = require('crypto');
+const { sendRegistrationConfirmation } = require('./email');
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+module.exports = (app) => {
+    const assertEventOwnership = async (eventId, organizationId) => {
+        const event = await app.db('events')
+            .where({ id: eventId, organization_id: organizationId })
+            .first();
+        if (!event) {
+            const err = new Error('Event not found');
+            err.status = 404;
+            throw err;
+        }
+    };
+
+    const findAll = async (eventId, organizationId, filters = {}) => {
+        await assertEventOwnership(eventId, organizationId);
+        const query = app.db('participants')
+            .where({ event_id: eventId })
+            .select('id', 'name', 'email', 'company', 'job_title', 'phone', 'status', 'room_id', 'checked_in_at');
+
+        if (filters.status) query.where({ status: filters.status });
+        if (filters.name) query.where('name', 'ilike', `%${filters.name}%`);
+        if (filters.company) query.where('company', 'ilike', `%${filters.company}%`);
+
+        return query;
+    };
+
+    const findOne = async (id, eventId, organizationId) => {
+        await assertEventOwnership(eventId, organizationId);
+        return app.db('participants')
+            .where({ id, event_id: eventId })
+            .select('id', 'name', 'email', 'cpf', 'company', 'job_title', 'phone', 'status', 'room_id', 'checked_in_at', 'created_at')
+            .first();
+    };
+
+    const create = async (participant, eventId, organizationId) => {
+        const event = await app.db('events')
+            .where({ id: eventId, organization_id: organizationId })
+            .first();
+        if (!event) {
+            const err = new Error('Event not found');
+            err.status = 404;
+            throw err;
+        }
+
+        if (!participant.name) {
+            const err = new Error('Participant name is required');
+            err.status = 400;
+            throw err;
+        }
+        if (!participant.email) {
+            const err = new Error('Participant email is required');
+            err.status = 400;
+            throw err;
+        }
+        if (!EMAIL_RE.test(participant.email)) {
+            const err = new Error('Invalid email address');
+            err.status = 400;
+            throw err;
+        }
+
+        const existing = await app.db('participants')
+            .where({ event_id: eventId, email: participant.email })
+            .first();
+        if (existing) {
+            const err = new Error('Email already registered for this event');
+            err.status = 400;
+            throw err;
+        }
+
+        const id = randomUUID();
+        const qr_code = await QRCode.toDataURL(id);
+
+        const [newParticipant] = await app.db('participants').insert({
+            id,
+            event_id: eventId,
+            room_id: participant.room_id || null,
+            name: participant.name,
+            email: participant.email,
+            cpf: participant.cpf || null,
+            company: participant.company || null,
+            job_title: participant.job_title || null,
+            phone: participant.phone || null,
+            status: 'registered',
+            qr_code,
+        }, ['id', 'name', 'email', 'company', 'job_title', 'status', 'qr_code']);
+
+        if (process.env.NODE_ENV !== 'test') {
+            try {
+                await sendRegistrationConfirmation({
+                    to: participant.email,
+                    participantName: participant.name,
+                    eventName: event.name,
+                    startDate: event.start_date,
+                    endDate: event.end_date,
+                    eventLocation: event.location || '',
+                    qrCodeDataUrl: qr_code,
+                });
+                console.log('Email sent to participant:', id);
+            } catch (err) {
+                console.error('Email send failed:', err);
+            }
+        }
+
+        return newParticipant;
+    };
+
+    const update = async (id, eventId, organizationId, data) => {
+        await assertEventOwnership(eventId, organizationId);
+        const participant = await app.db('participants').where({ id, event_id: eventId }).first();
+        if (!participant) {
+            const err = new Error('Participant not found');
+            err.status = 404;
+            throw err;
+        }
+
+        if (data.email !== undefined && !EMAIL_RE.test(data.email)) {
+            const err = new Error('Invalid email address');
+            err.status = 400;
+            throw err;
+        }
+
+        const allowed = ['name', 'email', 'company', 'job_title', 'phone', 'room_id'];
+        const safeData = Object.fromEntries(
+            Object.entries(data).filter(([k]) => allowed.includes(k))
+        );
+
+        const [updated] = await app.db('participants')
+            .where({ id, event_id: eventId })
+            .update(safeData, ['id', 'name', 'email', 'company', 'status']);
+
+        return updated;
+    };
+
+    const remove = async (id, eventId, organizationId) => {
+        await assertEventOwnership(eventId, organizationId);
+        const participant = await app.db('participants').where({ id, event_id: eventId }).first();
+        if (!participant) {
+            const err = new Error('Participant not found');
+            err.status = 404;
+            throw err;
+        }
+
+        await app.db('participants').where({ id, event_id: eventId }).delete();
+    };
+
+    const checkin = async (id, eventId, organizationId, userId) => {
+        await assertEventOwnership(eventId, organizationId);
+        const participant = await app.db('participants').where({ id, event_id: eventId }).first();
+        if (!participant) {
+            const err = new Error('Participant not found');
+            err.status = 404;
+            throw err;
+        }
+        if (participant.status === 'checked_in') {
+            const err = new Error('Participant already checked in');
+            err.status = 400;
+            throw err;
+        }
+
+        await app.db('participants')
+            .where({ id, event_id: eventId })
+            .update({ status: 'checked_in', checked_in_at: new Date() });
+
+        await app.db('check_ins').insert({
+            participant_id: id,
+            checked_in_by: userId,
+            method: 'manual',
+        });
+
+        return { message: 'Check-in successful', participant_id: id };
+    };
+
+    return { findAll, findOne, create, update, remove, checkin };
+};

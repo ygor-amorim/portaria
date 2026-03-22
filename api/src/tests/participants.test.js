@@ -1,0 +1,242 @@
+const request = require('supertest');
+const { app, truncateAll, signupAndGetToken, authHeader } = require('./helpers');
+
+let token, eventId;
+
+const validEvent = {
+    code: 'EVT01', name: 'Test Event', start_date: '2026-06-01', end_date: '2026-06-02',
+};
+const validParticipant = {
+    name: 'João Silva',
+    email: 'joao@test.com',
+    company: 'Test Corp',
+    job_title: 'Engineer',
+};
+
+beforeEach(async () => {
+    await truncateAll();
+    token = await signupAndGetToken();
+    const res = await request(app).post('/events').set(authHeader(token)).send(validEvent);
+    eventId = res.body.id;
+});
+
+describe('Auth guard', () => {
+    test('GET /events/:id/participants returns 401 without token', async () => {
+        const res = await request(app).get(`/events/${eventId}/participants`);
+        expect(res.status).toBe(401);
+    });
+});
+
+describe('GET /events/:eventId/participants', () => {
+    test('returns empty array when no participants', async () => {
+        const res = await request(app)
+            .get(`/events/${eventId}/participants`)
+            .set(authHeader(token));
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual([]);
+    });
+
+    test('filters by name (case insensitive)', async () => {
+        await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send(validParticipant);
+        await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send({ name: 'Maria Souza', email: 'maria@test.com' });
+
+        const res = await request(app)
+            .get(`/events/${eventId}/participants?name=João`)
+            .set(authHeader(token));
+        expect(res.status).toBe(200);
+        expect(res.body).toHaveLength(1);
+        expect(res.body[0].name).toBe('João Silva');
+    });
+
+    test('filters by company', async () => {
+        await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send(validParticipant);
+        await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send({ name: 'Maria Souza', email: 'maria@test.com', company: 'Other Corp' });
+
+        const res = await request(app)
+            .get(`/events/${eventId}/participants?company=test`)
+            .set(authHeader(token));
+        expect(res.status).toBe(200);
+        expect(res.body).toHaveLength(1);
+        expect(res.body[0].company).toBe('Test Corp');
+    });
+
+    test('filters by status', async () => {
+        await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send(validParticipant);
+
+        const res = await request(app)
+            .get(`/events/${eventId}/participants?status=registered`)
+            .set(authHeader(token));
+        expect(res.status).toBe(200);
+        expect(res.body).toHaveLength(1);
+    });
+});
+
+describe('POST /events/:eventId/participants', () => {
+    test('creates participant with qr_code', async () => {
+        const res = await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send(validParticipant);
+        expect(res.status).toBe(201);
+        expect(res.body.id).toBeDefined();
+        expect(res.body.name).toBe('João Silva');
+        expect(res.body.status).toBe('registered');
+        expect(res.body.qr_code).toMatch(/^data:image\/png;base64,/);
+    });
+
+    test('returns 400 when name is missing', async () => {
+        const res = await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send({ email: 'joao@test.com' });
+        expect(res.status).toBe(400);
+    });
+
+    test('returns 400 when email is missing', async () => {
+        const res = await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send({ name: 'João Silva' });
+        expect(res.status).toBe(400);
+    });
+
+    test('returns 400 when email is invalid', async () => {
+        const res = await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send({ name: 'João Silva', email: 'notanemail' });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/invalid email/i);
+    });
+
+    test('returns 400 when email is already registered for the event', async () => {
+        await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send(validParticipant);
+        const res = await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send({ ...validParticipant, name: 'João Clone' });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/email/i);
+    });
+});
+
+describe('GET /events/:eventId/participants/:id', () => {
+    test('returns the participant', async () => {
+        const created = await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send(validParticipant);
+        const res = await request(app)
+            .get(`/events/${eventId}/participants/${created.body.id}`)
+            .set(authHeader(token));
+        expect(res.status).toBe(200);
+        expect(res.body.id).toBe(created.body.id);
+    });
+
+    test('returns 404 for unknown id', async () => {
+        const res = await request(app)
+            .get(`/events/${eventId}/participants/00000000-0000-0000-0000-000000000000`)
+            .set(authHeader(token));
+        expect(res.status).toBe(404);
+    });
+});
+
+describe('DELETE /events/:eventId/participants/:id', () => {
+    test('deletes the participant', async () => {
+        const created = await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send(validParticipant);
+        const del = await request(app)
+            .delete(`/events/${eventId}/participants/${created.body.id}`)
+            .set(authHeader(token));
+        expect(del.status).toBe(204);
+    });
+});
+
+describe('Multi-tenant isolation', () => {
+    test('org B cannot access org A participants', async () => {
+        // Create a participant under org A's event
+        await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send(validParticipant);
+
+        // Org B signs up, creates their own event
+        const tokenB = await signupAndGetToken({ orgName: 'Org B', slug: 'org-b', email: 'b@test.com' });
+        const eventB = await request(app).post('/events').set(authHeader(tokenB)).send(validEvent);
+
+        // Org B tries to list participants of org A's event
+        const res = await request(app)
+            .get(`/events/${eventId}/participants`)
+            .set(authHeader(tokenB));
+        expect(res.status).toBe(404);
+    });
+});
+
+describe('POST /events/:eventId/participants/:id/checkin', () => {
+    let participantId;
+
+    beforeEach(async () => {
+        const res = await request(app)
+            .post(`/events/${eventId}/participants`)
+            .set(authHeader(token))
+            .send(validParticipant);
+        participantId = res.body.id;
+    });
+
+    test('checks in a participant', async () => {
+        const res = await request(app)
+            .post(`/events/${eventId}/participants/${participantId}/checkin`)
+            .set(authHeader(token));
+        expect(res.status).toBe(200);
+        expect(res.body.message).toMatch(/successful/i);
+    });
+
+    test('updates participant status to checked_in', async () => {
+        await request(app)
+            .post(`/events/${eventId}/participants/${participantId}/checkin`)
+            .set(authHeader(token));
+        const res = await request(app)
+            .get(`/events/${eventId}/participants/${participantId}`)
+            .set(authHeader(token));
+        expect(res.body.status).toBe('checked_in');
+        expect(res.body.checked_in_at).toBeDefined();
+    });
+
+    test('returns 400 when participant is already checked in', async () => {
+        await request(app)
+            .post(`/events/${eventId}/participants/${participantId}/checkin`)
+            .set(authHeader(token));
+        const res = await request(app)
+            .post(`/events/${eventId}/participants/${participantId}/checkin`)
+            .set(authHeader(token));
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/already/i);
+    });
+
+    test('returns 404 for unknown participant', async () => {
+        const res = await request(app)
+            .post(`/events/${eventId}/participants/00000000-0000-0000-0000-000000000000/checkin`)
+            .set(authHeader(token));
+        expect(res.status).toBe(404);
+    });
+});

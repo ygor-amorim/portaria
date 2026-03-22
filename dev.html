@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Portaria — Dev Console</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: monospace; background: #0f0f0f; color: #e0e0e0; padding: 24px; }
+    h1 { color: #f59e0b; margin-bottom: 24px; font-size: 1.2rem; letter-spacing: 0.1em; }
+    h2 { color: #a0a0a0; font-size: 0.75rem; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 12px; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    input, select {
+      width: 100%;
+      background: #111;
+      border: 1px solid #333;
+      color: #e0e0e0;
+      padding: 7px 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      margin-bottom: 8px;
+    }
+    input:focus { outline: none; border-color: #f59e0b; }
+
+    button {
+      width: 100%;
+      background: #f59e0b;
+      color: #000;
+      border: none;
+      padding: 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-weight: bold;
+      font-size: 0.85rem;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+    button:hover { background: #fbbf24; }
+
+    .response {
+      margin-top: 10px;
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 4px;
+      padding: 10px;
+      font-size: 0.75rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 160px;
+      overflow-y: auto;
+      color: #86efac;
+    }
+    .response.error { color: #fca5a5; }
+
+    .token-bar {
+      background: #1a1a1a;
+      border: 1px solid #f59e0b44;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .token-bar span { color: #f59e0b; white-space: nowrap; }
+    .token-bar code {
+      flex: 1;
+      color: #a0a0a0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .token-bar button { width: auto; padding: 4px 12px; margin: 0; font-size: 0.75rem; }
+
+    label { display: block; font-size: 0.7rem; color: #666; margin-bottom: 3px; margin-top: 4px; }
+    hr { border: none; border-top: 1px solid #222; margin: 20px 0; }
+  </style>
+</head>
+<body>
+
+<h1>◉ PORTARIA — DEV CONSOLE</h1>
+
+<!-- Token bar -->
+<div class="token-bar">
+  <span>TOKEN</span>
+  <code id="token-display">none</code>
+  <button type="button" onclick="copyToken()">copy</button>
+  <button type="button" onclick="clearToken()" style="background:#333;color:#e0e0e0;">clear</button>
+</div>
+
+<div class="grid">
+
+  <!-- SIGNUP -->
+  <div class="card">
+    <h2>Auth / Signup</h2>
+    <label>Org Name</label>
+    <input id="su-orgName" value="Demo Events" />
+    <label>Slug</label>
+    <input id="su-slug" value="demo-events" />
+    <label>Your Name</label>
+    <input id="su-name" value="Demo Admin" />
+    <label>Email</label>
+    <input id="su-email" value="admin@demo.test" />
+    <label>Password</label>
+    <input id="su-password" type="password" value="senha123" />
+    <button type="button" onclick="signup()">POST /auth/signup</button>
+    <div class="response" id="su-res"></div>
+  </div>
+
+  <!-- SIGNIN -->
+  <div class="card">
+    <h2>Auth / Signin</h2>
+    <label>Email</label>
+    <input id="si-email" value="admin@demo.test" />
+    <label>Password</label>
+    <input id="si-password" type="password" value="senha123" />
+    <button type="button" onclick="signin()">POST /auth/signin</button>
+    <div class="response" id="si-res"></div>
+  </div>
+
+  <!-- CREATE EVENT -->
+  <div class="card">
+    <h2>Events / Create</h2>
+    <label>Code</label>
+    <input id="ev-code" value="PORT27" />
+    <label>Name</label>
+    <input id="ev-name" value="Portaria Tech 2026" />
+    <label>Start Date</label>
+    <input id="ev-start" value="2026-04-10" />
+    <label>End Date</label>
+    <input id="ev-end" value="2026-04-11" />
+    <label>Location</label>
+    <input id="ev-location" value="Centro de Convenções, SP" />
+    <button type="button" onclick="submitEvent()">POST /events</button>
+    <div class="response" id="ev-res"></div>
+  </div>
+
+  <!-- LIST EVENTS -->
+  <div class="card">
+    <h2>Events / List</h2>
+    <button type="button" onclick="listEvents()">GET /events</button>
+    <div class="response" id="evl-res"></div>
+  </div>
+
+  <!-- CREATE ROOM -->
+  <div class="card">
+    <h2>Rooms / Create</h2>
+    <label>Event ID</label>
+    <input id="rm-eventId" placeholder="paste event id" />
+    <label>Name</label>
+    <input id="rm-name" value="Sala Principal" />
+    <label>Capacity</label>
+    <input id="rm-capacity" value="200" />
+    <button type="button" onclick="createRoom()">POST /events/:id/rooms</button>
+    <div class="response" id="rm-res"></div>
+  </div>
+
+  <!-- CREATE PARTICIPANT -->
+  <div class="card">
+    <h2>Participants / Create</h2>
+    <label>Event ID</label>
+    <input id="pt-eventId" placeholder="paste event id" />
+    <label>Name</label>
+    <input id="pt-name" value="João Silva" />
+    <label>Email</label>
+    <input id="pt-email" value="joao@example.com" />
+    <label>Company</label>
+    <input id="pt-company" value="Acme Ltda" />
+    <label>Job Title</label>
+    <input id="pt-job" value="Gerente" />
+    <button type="button" onclick="createParticipant()">POST /events/:id/participants</button>
+    <div class="response" id="pt-res"></div>
+  </div>
+
+  <!-- LIST PARTICIPANTS -->
+  <div class="card">
+    <h2>Participants / List</h2>
+    <label>Event ID</label>
+    <input id="ptl-eventId" placeholder="paste event id" />
+    <label>Filter: name (optional)</label>
+    <input id="ptl-name" placeholder="search by name..." />
+    <button type="button" onclick="listParticipants()">GET /events/:id/participants</button>
+    <div class="response" id="ptl-res"></div>
+  </div>
+
+  <!-- CHECK-IN -->
+  <div class="card">
+    <h2>Check-in</h2>
+    <label>Event ID</label>
+    <input id="ci-eventId" placeholder="paste event id" />
+    <label>Participant ID</label>
+    <input id="ci-participantId" placeholder="paste participant id" />
+    <button type="button" onclick="checkin()">POST /events/:id/participants/:id/checkin</button>
+    <div class="response" id="ci-res"></div>
+  </div>
+
+</div>
+
+<script>
+  const BASE = 'http://localhost:3002';
+
+  let token = localStorage.getItem('dev_token') || '';
+  updateTokenDisplay();
+
+  function updateTokenDisplay() {
+    document.getElementById('token-display').textContent = token ? token.slice(0, 60) + '...' : 'none';
+  }
+  function saveToken(t) {
+    token = t;
+    localStorage.setItem('dev_token', t);
+    updateTokenDisplay();
+  }
+  function copyToken() {
+    navigator.clipboard.writeText(token);
+  }
+  function clearToken() {
+    token = '';
+    localStorage.removeItem('dev_token');
+    updateTokenDisplay();
+  }
+
+  function show(id, data, isError = false) {
+    const el = document.getElementById(id);
+    el.className = 'response' + (isError ? ' error' : '');
+    el.textContent = JSON.stringify(data, null, 2);
+  }
+
+  async function api(method, path, body, resId) {
+    try {
+      const opts = {
+        method,
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      };
+      const res = await fetch(BASE + path, opts);
+      const data = await res.json();
+      show(resId, data, !res.ok);
+      return data;
+    } catch (err) {
+      show(resId, { error: err.message }, true);
+    }
+  }
+
+  async function signup() {
+    const data = await api('POST', '/auth/signup', {
+      orgName: v('su-orgName'), slug: v('su-slug'),
+      name: v('su-name'), email: v('su-email'), password: v('su-password'),
+    }, 'su-res');
+    if (data?.token) saveToken(data.token);
+  }
+
+  async function signin() {
+    const data = await api('POST', '/auth/signin', {
+      email: v('si-email'), password: v('si-password'),
+    }, 'si-res');
+    if (data?.token) saveToken(data.token);
+  }
+
+  async function submitEvent() {
+    await api('POST', '/events', {
+      code: v('ev-code'), name: v('ev-name'),
+      start_date: v('ev-start'), end_date: v('ev-end'), location: v('ev-location'),
+    }, 'ev-res');
+  }
+
+  async function listEvents() {
+    await api('GET', '/events', null, 'evl-res');
+  }
+
+  async function createRoom() {
+    const eventId = v('rm-eventId');
+    await api('POST', `/events/${eventId}/rooms`, {
+      name: v('rm-name'), capacity: parseInt(v('rm-capacity')),
+    }, 'rm-res');
+  }
+
+  async function createParticipant() {
+    const eventId = v('pt-eventId');
+    await api('POST', `/events/${eventId}/participants`, {
+      name: v('pt-name'), email: v('pt-email'),
+      company: v('pt-company'), job_title: v('pt-job'),
+    }, 'pt-res');
+  }
+
+  async function listParticipants() {
+    const eventId = v('ptl-eventId');
+    const name = v('ptl-name');
+    const qs = name ? `?name=${encodeURIComponent(name)}` : '';
+    await api('GET', `/events/${eventId}/participants${qs}`, null, 'ptl-res');
+  }
+
+  async function checkin() {
+    const eventId = v('ci-eventId');
+    const participantId = v('ci-participantId');
+    await api('POST', `/events/${eventId}/participants/${participantId}/checkin`, {}, 'ci-res');
+  }
+
+  const v = (id) => document.getElementById(id).value.trim();
+</script>
+</body>
+</html>

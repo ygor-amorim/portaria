@@ -1,0 +1,20 @@
+exports.up = (knex) =>
+  knex.schema.createTable('participants', (t) => {
+    t.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'))
+    t.uuid('event_id').notNullable().references('id').inTable('events').onDelete('CASCADE')
+    t.uuid('room_id').references('id').inTable('rooms').onDelete('SET NULL')
+    t.string('name').notNullable()
+    t.string('email').notNullable()
+    t.string('cpf')
+    t.string('company')
+    t.string('job_title')
+    t.string('phone')
+    t.string('qr_code').unique()
+    t.enu('status', ['registered', 'checked_in', 'absent']).notNullable().defaultTo('registered')
+    t.timestamp('checked_in_at')
+    t.jsonb('custom_fields').defaultTo('{}')
+    t.timestamps(true, true)
+    t.unique(['event_id', 'email'])
+  })
+
+exports.down = (knex) => knex.schema.dropTable('participants')
